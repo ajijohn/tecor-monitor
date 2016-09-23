@@ -10,11 +10,12 @@ from pymongo import MongoClient
 import SES
 import pyncl
 import sched, time
-from boto.s3.connection import OrdinaryCallingFormat
-from boto import s3
+from boto3 import s3
+
 import os
 from os.path import join, dirname
 from dotenv import load_dotenv
+
 
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
@@ -69,7 +70,7 @@ def check_new(sc):
                              request_lkup['variable'][0])
 
 
-        c = s3.connect_to_region(awsregion,calling_format=OrdinaryCallingFormat())
+        c = s3.connect_to_region(awsregion)
         bucket = c.get_bucket(s3bucket, validate=False)
 
         key = bucket.new_key('/' + str(request_lkup['_id']) +'/extract.txt')
