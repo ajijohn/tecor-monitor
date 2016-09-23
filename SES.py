@@ -5,7 +5,8 @@ __author__ = 'Aji John'
 __version__ = '0.0.1'
 # ==============================================================================
 
-import boto3
+import boto
+from boto import ses
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -36,6 +37,6 @@ def send_ses(awsregion,fromaddr,
         part.add_header('Content-Disposition', 'attachment', filename=filename)
         msg.attach(part)
 
-    conn = boto3.ses.connect_to_region(awsregion)
+    conn = boto.ses.connect_to_region(awsregion)
     result = conn.send_raw_email(msg.as_string())
     return result if 'ErrorResponse' in result else ''
