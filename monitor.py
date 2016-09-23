@@ -77,7 +77,8 @@ def check_new(sc):
 
         key.set_metadata('Content-Type', 'text/plain')
         key.set_acl('public-read')
-        url = key.generate_url(expires_in=60, query_auth=False, force_http=True)
+        #2 days expiry
+        url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
 
         SES.send_ses(awsregion,'requests@microclim.org', 'Your extract request' +
                      str(request_lkup['_id'])  +  ' has completed',
