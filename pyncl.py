@@ -98,10 +98,10 @@ geo_em = addfile("geo_em.d01.nc", "r")
 lat2d = geo_em->XLAT_M(0,:,:)
 lon2d = geo_em->XLONG_M(0,:,:)
 
-;latS   = 30                      ; California [*rough*]
-;latN   = 43
-;lonW   = -125
-;lonE   = -113
+latS   = 30                      ; California [*rough*]
+latN   = 43
+lonW   = -125
+lonE   = -113
 
 ji = region_ind (lat2d,lon2d, latS, latN, lonW, lonE)
 jStrt = ji(0)      ; lat start
@@ -124,6 +124,12 @@ year_file = addfile(INPUTDIR + climate_file , "r")
 
 tstart = ind(year_file->time.eq.(startdate*100))
 tend = ind(year_file->time.eq.(enddate*100))
+;print(tstart)
+;print(tend)
+;print(jStrt)
+;print(jLast)
+;print(iStrt)
+;print(iLast)
 
 var = year_file->$varname$(0, tstart:tend,jStrt:jLast, iStrt:iLast)
 
