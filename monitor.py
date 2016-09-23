@@ -84,7 +84,7 @@ def check_new(sc):
         #2 days expiry
         url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
 
-        SES.send_ses(awsregion,'requests@microclim.org', 'Your extract request' +
+        SES.send_ses(awsregion,'requests@microclim.org', 'Your extract request-' +
                      str(request_lkup['_id'])  +  ' has completed',
                      "You can access your file here\n " + url, request_lkup['email'])
 
