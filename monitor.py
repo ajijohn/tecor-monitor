@@ -62,25 +62,40 @@ def check_new(sc):
         # verify the file exists in S3
         # send email out
 
+        #if the work directory doesn't exist create it
+        if not os.path.exists(outputdir + '/' + str(request_lkup['_id'])):
+            os.makedirs(outputdir + '/' + str(request_lkup['_id']))
+
         #lat is LatS, LatN
         #lon is LonW, LonE
-        pyncl.RunNCL.withvar(inputdir,outputdir, request_lkup['startdate'],
+        pyncl.RunNCLV2.withvar(inputdir,outputdir + '/' + str(request_lkup['_id']), request_lkup['startdate'],
                              request_lkup['enddate'],
                              request_lkup['lats'][0],
                              request_lkup['lats'][1],
                              request_lkup['longs'][0],
                              request_lkup['longs'][1],
-                             request_lkup['variable'][0])
+                             request_lkup['variable'][0],
+                             0, 0,0,0,1)
 
 
         c = s3.connect_to_region(awsregion,calling_format=OrdinaryCallingFormat())
         bucket = c.get_bucket(s3bucket, validate=False)
 
-        key = bucket.new_key('/' + str(request_lkup['_id']) +'/extract.txt')
-        key.set_contents_from_filename(outputdir+ 'd02.txt')
+        #key = bucket.new_key('/' + str(request_lkup['_id']) +'/extract.txt')
+        #key.set_contents_from_filename(outputdir+ '/d02.txt')
 
-        key.set_metadata('Content-Type', 'text/plain')
-        key.set_acl('public-read')
+        transitdirectory = outputdir + '/' + str(request_lkup['_id'])
+
+        #copy all the created files
+        filestosend = [f for f in os.listdir(transitdirectory) if os.path.isfile(os.path.join(transitdirectory, f))]
+
+        for file in filestosend:
+            key = bucket.new_key('/' + str(request_lkup['_id']) + '/' + file)
+            key.set_contents_from_filename(transitdirectory + '/' + file)
+            key.set_metadata('Content-Type', 'text/plain')
+            key.set_acl('public-read')
+
+
         #2 days expiry
         url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
 
@@ -110,7 +125,7 @@ def test():
     requests = db.requests
 
 
-    request= {"email": "aji.john@gmail.com",
+    request= {"email": "aji.john@xyz.com",
         "text": "Request for extract",
         "lats": ["30", "43"],
         "longs":["-125", "-113"],

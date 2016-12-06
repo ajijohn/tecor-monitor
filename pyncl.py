@@ -54,11 +54,11 @@ class NCL:
                                   ' latN=' + latN+
                                   ' lonW=' + lonW+
                                   ' lonE=' + lonE+
-                                  ' shade=' + '0'+
-                                  ' height=' + '0'+
-                                  ' interval=' + '0'+
-                                  ' aggregation=' + '0'+
-                                  ' output=' + '0 '+
+                                  ' shade=' + str(shade)+
+                                  ' height=' + str(height)+
+                                  ' interval=' + str(interval)+
+                                  ' aggregation=' + str(aggregation)+
+                                  ' output=' + str(output)+
                                   ' \'varname="' + varname+
                                   '"\' '+
                                   ' \'INPUTDIR="' + inputdir+
@@ -262,12 +262,17 @@ if (vardims(varindex).eq."hourly/shade") then
   fout_name = varname+"_output_shade-" + tostring(shades(shade))
 end if
 fout_name = OUTPUTDIR + "/" + fout_name +  "_interval-" + intervals(interval) + "_aggregation-" + aggregations(aggregation) + "_times-" + tostring(startdate) + "-" + tostring(enddate) + "_created-"+ current_time
+
 if (output.eq.1) then
   csv_name = fout_name + ".csv"
 end if
+
 fout_name = fout_name +".nc"
+
 print(fout_name)
 ;;;;;;;; end of determining file name
+print(output)
+
 
 ;;;;;;;; create the file
 fout     = addfile(fout_name ,"c")  ; open output netCDF file
