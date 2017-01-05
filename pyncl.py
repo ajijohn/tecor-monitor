@@ -239,7 +239,7 @@ dimSizes = (/ output_num_of_times   ,  num_of_lats,  num_of_lons /)
 dimUnlim = (/ False, False, False/)
 ;;;;;; determine the file name based on the selected variable, height, and shade
 ;get current time in YYYYMMDDhhmm
-current_time = systemfunc("date -u '+%Y-%m-%e-%H%M'")
+current_time = systemfunc("date -u '+%Y-%m-%d-%H%M'")
 varindex = ind(varnames.eq.varname)
 if (vardims(varindex).eq."hourly") then
   fout_name = varname+"_output"
