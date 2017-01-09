@@ -75,8 +75,14 @@ def check_new(sc):
                              request_lkup['longs'][0],
                              request_lkup['longs'][1],
                              request_lkup['variable'][0],
-                             0, 0,0,0,1)
+                             #0, 0,0,0,1)
+                             request_lkup['shadelevel'],
+                             request_lkup['hod'],
+                             request_lkup['interval'],
+                             request_lkup['aggregation'],
+                             1)
 
+        #Last set of variables shade, height,interval,aggregation,output
 
         c = s3.connect_to_region(awsregion,calling_format=OrdinaryCallingFormat())
         bucket = c.get_bucket(s3bucket, validate=False)
