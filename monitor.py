@@ -66,15 +66,17 @@ def check_new(sc):
         if not os.path.exists(outputdir + '/' + str(request_lkup['_id'])):
             os.makedirs(outputdir + '/' + str(request_lkup['_id']))
 
-        #lat is LatS, LatN
-        #lon is LonW, LonE
-        pyncl.RunNCLV2.withvar(inputdir,outputdir + '/' + str(request_lkup['_id']), request_lkup['startdate'],
+        #Iterate through all the variables
+        for variable in request_lkup['variable']:
+            #lat is LatS, LatN
+            #lon is LonW, LonE
+            pyncl.RunNCLV2.withvar(inputdir,outputdir + '/' + str(request_lkup['_id']), request_lkup['startdate'],
                              request_lkup['enddate'],
                              request_lkup['lats'][0],
                              request_lkup['lats'][1],
                              request_lkup['longs'][0],
                              request_lkup['longs'][1],
-                             request_lkup['variable'][0],
+                             variable,
                              #0, 0,0,0,1)
                              request_lkup['shadelevel'],
                              request_lkup['hod'],
