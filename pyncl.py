@@ -47,7 +47,10 @@ class NCL:
     #shade=0 height=0 interval=0 aggregation=0 output=0
 
     def runV2(file_path,inputdir,outputdir, startdate, enddate,latS,latN,lonW,lonE ,varname,shade, height,interval,aggregation,output):
-        retcode = subprocess.call('ncl ' +
+        returnCode=0
+
+        try:
+            retcode = subprocess.call('ncl ' +
                                   'startdate=' + startdate+
                                   ' enddate=' + enddate+
                                   ' latS=' + latS+
@@ -66,10 +69,21 @@ class NCL:
                                   ' \'OUTPUTDIR="' + outputdir+
                                   '"\' '+
                                   file_path, shell=True)
-        if retcode < 0:
-            print("Child was terminated by signal", -retcode, file=sys.stderr)
-        else:
-            print("Child returned", retcode, file=sys.stderr)
+            if retcode < 0:
+                print("Child was terminated by signal", -retcode, file=sys.stderr)
+
+            else:
+                print("Child returned", retcode, file=sys.stderr)
+
+            returnCode = retcode
+
+        except subprocess.CalledProcessError as e:
+            print(e.output)
+            returnCode = -1
+
+        finally:
+            return returnCode
+
 
 class RunNCLV2:
 
@@ -162,6 +176,14 @@ climate_file = INPUTDIR + "/" + model_time + "_" + tostring(startyear) + "_" + v
 
 ;debug
 print(climate_file)
+
+exists = fileexists(climate_file)
+
+;check it it exists
+if (.not.exists) then
+    print("Microclimate for year - "+ tostring(startyear) + " unavailable now" )
+    status_exit(42)
+end if
 
 year_file = addfile(climate_file , "r")
 
@@ -449,12 +471,13 @@ delete(fout)
 
 
 
-exit
+;exit
+status_exit(0)
 end
     '''
         NCL.create(ncl_file_path, ncl_code)
-        NCL.runV2(ncl_file_path,inputdir,outputdir, startdate, enddate,latS,latN,lonW,lonE ,varname,shade, height,interval,aggregation,output)
-
+        retCode = NCL.runV2(ncl_file_path,inputdir,outputdir, startdate, enddate,latS,latN,lonW,lonE ,varname,shade, height,interval,aggregation,output)
+        return retCode
 
 class RunNCL:
 
