@@ -5,6 +5,8 @@ __author__ = 'Aji John'
 __version__ = '0.0.1'
 # ==============================================================================
 
+from enum import Enum
+
 from datetime import date
 from pymongo import MongoClient
 import SES
@@ -47,6 +49,11 @@ Extract Request
   "misc":""
 }
 '''
+
+class ErrorMessages(Enum):
+    OK=0
+    NON_EXISTENT_MICROCLIM_FILE=42
+
 def check_new(sc):
     # look for new jobs
     # if exists, pick it, change the status
@@ -54,6 +61,8 @@ def check_new(sc):
     today = date.today()
     print("Starting sweep on " + str(today.strftime('%m/%d/%Y %H:%M')))
     requests = db.requests
+
+    error = False
 
     request_lkup = requests.find_one({"status": "OPEN"})
     if(request_lkup is not None):
@@ -70,7 +79,7 @@ def check_new(sc):
         for variable in request_lkup['variable']:
             #lat is LatS, LatN
             #lon is LonW, LonE
-            pyncl.RunNCLV2.withvar(inputdir,outputdir + '/' + str(request_lkup['_id']), request_lkup['startdate'],
+            retCode = pyncl.RunNCLV2.withvar(inputdir,outputdir + '/' + str(request_lkup['_id']), request_lkup['startdate'],
                              request_lkup['enddate'],
                              request_lkup['lats'][0],
                              request_lkup['lats'][1],
@@ -83,43 +92,65 @@ def check_new(sc):
                              request_lkup['interval'],
                              request_lkup['aggregation'],
                              1)
+            #If one variable job errors , leave
+            if(retCode <0 or retCode >0):
+                error=True
+                break
+            else:
+                error=False
 
-        #Last set of variables shade, height,interval,aggregation,output
+        if(not error):
+            #Last set of variables shade, height,interval,aggregation,output
 
-        c = s3.connect_to_region(awsregion,calling_format=OrdinaryCallingFormat())
-        bucket = c.get_bucket(s3bucket, validate=False)
+            c = s3.connect_to_region(awsregion,calling_format=OrdinaryCallingFormat())
+            bucket = c.get_bucket(s3bucket, validate=False)
 
-        #key = bucket.new_key('/' + str(request_lkup['_id']) +'/extract.txt')
-        #key.set_contents_from_filename(outputdir+ '/d02.txt')
+            #key = bucket.new_key('/' + str(request_lkup['_id']) +'/extract.txt')
+            #key.set_contents_from_filename(outputdir+ '/d02.txt')
 
-        transitdirectory = outputdir + '/' + str(request_lkup['_id'])
+            transitdirectory = outputdir + '/' + str(request_lkup['_id'])
 
-        #copy all the created files
-        filestosend = [f for f in os.listdir(transitdirectory) if os.path.isfile(os.path.join(transitdirectory, f))]
+            #copy all the created files
+            filestosend = [f for f in os.listdir(transitdirectory) if os.path.isfile(os.path.join(transitdirectory, f))]
 
-        for file in filestosend:
-            key = bucket.new_key('/' + str(request_lkup['_id']) + '/' + file)
-            key.set_contents_from_filename(transitdirectory + '/' + file)
-            key.set_metadata('Content-Type', 'text/plain')
-            key.set_acl('public-read')
+            for file in filestosend:
+                key = bucket.new_key('/' + str(request_lkup['_id']) + '/' + file)
+                key.set_contents_from_filename(transitdirectory + '/' + file)
+                key.set_metadata('Content-Type', 'text/plain')
+                key.set_acl('public-read')
 
 
-        #2 days expiry
-        url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
+            #2 days expiry
+            url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
 
-        SES.send_ses(awsregion,'requests@microclim.org', 'Your extract request-' +
+            SES.send_ses(awsregion,'requests@microclim.org', 'Your extract request-' +
                      str(request_lkup['_id'])  +  ' has completed',
                      "You can access your file here\n " + url, request_lkup['email'])
 
-        requests.update_one({
-            '_id': request_lkup['_id']
+            requests.update_one({
+                '_id': request_lkup['_id']
                 },{
-            '$set': {
+                '$set': {
                 'status': "EMAILED"
                 }
+                }, upsert=False)
+            #TODO
+            #Check if the update actually occured
+        else:
+            SES.send_ses(awsregion, 'requests@microclim.org', 'Your extract request-' +
+                         str(request_lkup['_id']) + ' has completed with ERROR',
+                         "Request has resulted in error - " + ErrorMessages(retCode).name + " for date range " + request_lkup['startdate'] +
+                                      "-" + request_lkup['enddate'], request_lkup['email'])
+
+            requests.update_one({
+                '_id': request_lkup['_id']
+            }, {
+                '$set': {
+                    'status': "ERRORED",
+                    'status_message':ErrorMessages(retCode).name + " for date range " + request_lkup['startdate'] +
+                                      "-" + request_lkup['enddate']
+                }
             }, upsert=False)
-        #TODO
-        #Check if the update actually occured
 
         print("Processed request id - " + str(request_lkup['_id']) + " from " + str(request_lkup['email']) )
 
