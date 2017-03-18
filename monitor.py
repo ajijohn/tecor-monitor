@@ -6,7 +6,7 @@ __version__ = '0.0.1'
 # ==============================================================================
 
 from enum import Enum
-
+from string import Template
 from datetime import date
 from pymongo import MongoClient
 import SES
@@ -62,7 +62,7 @@ def check_new(sc):
     print("Starting sweep on " + str(today.strftime('%m/%d/%Y %H:%M')))
     requests = db.requests
 
-    error = False
+    error = True
 
     request_lkup = requests.find_one({"status": "OPEN"})
     if(request_lkup is not None):
@@ -99,6 +99,16 @@ def check_new(sc):
             else:
                 error=False
 
+        #Form the request string
+        requeststring = Template('Your request was submitted with parameters -  start date $startdate, enddate $enddate,' +
+                     ' bounding box ($lats,$latn) ($lonw,$lone), ' +
+                     ' shade level $shadelevel, height $hod, interval $interval and aggregation metric $aggregation.\n')
+        request_text= requeststring.safe_substitute(startdate=request_lkup['startdate'], enddate=request_lkup['enddate'],
+                     lats=request_lkup['lats'][0],latn=request_lkup['lats'][1] ,
+                     lonw=request_lkup['longs'][0],lone=request_lkup['longs'][1],
+                     shadelevel=request_lkup['shadelevel'],hod=request_lkup['hod'],
+                     interval=request_lkup['interval'],aggregation=request_lkup['aggregation'])
+
         if(not error):
             #Last set of variables shade, height,interval,aggregation,output
 
@@ -113,19 +123,23 @@ def check_new(sc):
             #copy all the created files
             filestosend = [f for f in os.listdir(transitdirectory) if os.path.isfile(os.path.join(transitdirectory, f))]
 
+            fileurls=[]
+            emailbodyurl=''
+            footer = '\n \n If any questions/issues, please report it on our github issues page - https://github.com/trenchproject/ebm/issues.'
+
             for file in filestosend:
                 key = bucket.new_key('/' + str(request_lkup['_id']) + '/' + file)
                 key.set_contents_from_filename(transitdirectory + '/' + file)
                 key.set_metadata('Content-Type', 'text/plain')
                 key.set_acl('public-read')
-
-
-            #2 days expiry
-            url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
+                #2 days expiry
+                url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
+                fileurls.append(url)
+                emailbodyurl=emailbodyurl+ "\n"+ url
 
             SES.send_ses(awsregion,'requests@microclim.org', 'Your extract request-' +
                      str(request_lkup['_id'])  +  ' has completed',
-                     "You can access your file here\n " + url, request_lkup['email'])
+                         request_text+ "You can access your files using the hyperlinks below \n " + emailbodyurl + footer, request_lkup['email'])
 
             requests.update_one({
                 '_id': request_lkup['_id']
@@ -134,12 +148,13 @@ def check_new(sc):
                 'status': "EMAILED"
                 }
                 }, upsert=False)
+
             #TODO
             #Check if the update actually occured
         else:
             SES.send_ses(awsregion, 'requests@microclim.org', 'Your extract request-' +
                          str(request_lkup['_id']) + ' has completed with ERROR',
-                         "Request has resulted in error - " + ErrorMessages(retCode).name + " for date range " + request_lkup['startdate'] +
+                         request_text+ "Request has resulted in error - " + ErrorMessages(retCode).name + " for date range " + request_lkup['startdate'] +
                                       "-" + request_lkup['enddate'], request_lkup['email'])
 
             requests.update_one({
