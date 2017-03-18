@@ -52,6 +52,7 @@ Extract Request
 
 class ErrorMessages(Enum):
     OK=0
+    BOUNDING_BOX_TOO_SMALL=2
     NON_EXISTENT_MICROCLIM_FILE=42
 
 def check_new(sc):
