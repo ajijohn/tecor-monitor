@@ -68,7 +68,7 @@ class NCL:
                                   '"\' '+
                                   ' \'OUTPUTDIR="' + outputdir+
                                   '"\' '+
-                                  file_path, shell=True)
+                                  file_path, shell=True,timeout=300)
             if retcode < 0:
                 print("Child was terminated by signal", -retcode, file=sys.stderr)
 
