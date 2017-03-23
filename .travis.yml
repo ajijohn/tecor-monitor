@@ -1,14 +1,18 @@
 language: python
 python:
   - "3.5"
-before_install:
-    - pip install -U pytest pytest-cov
 notifications:
   email:
     on_success: never
     on_failure: never
   slack: huckley:ytUtSUTirXUlxyM01XDNkgKR
+
 # command to install dependencies
-install: "pip install -r requirements.txt"
+install:
+  - pip install -r requirements.txt
+  - pip install pytest
+
 # command to run tests
-script: pytest
+script:
+  - py.test monitor.py -v --color=yes --exitfirst --showlocals --durations=5
+

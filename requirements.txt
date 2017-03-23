@@ -3,3 +3,4 @@ pymongo
 python-dotenv
 boto
 boto3
+pytest

@@ -12,6 +12,7 @@ from pymongo import MongoClient
 import SES
 import pyncl
 import sched, time
+import pytest
 #from boto3 import s3
 
 from boto.s3.connection import OrdinaryCallingFormat
@@ -177,9 +178,6 @@ def check_new(sc):
     s.enter(60, 1, check_new, (sc,))
 
 def test():
-    requests = db.requests
-
-
     request= {"email": "aji.john@xyz.com",
         "text": "Request for extract",
         "lats": ["30", "43"],
@@ -193,8 +191,9 @@ def test():
         "timelogged":"",
         "status":"OPEN",
         "misc":""}
-    request_id = requests.insert_one(request).inserted_id
-    print(request_id)
+    pass
+
+
 
 
 if __name__ == '__main__':
