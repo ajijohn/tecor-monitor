@@ -207,8 +207,8 @@ times = year_file->time
 if (abs(latS-latN)<0.01 .and. abs(lonW-lonE)<0.01) then
   region = getind_latlon2d (lat2d,lon2d, latS, lonW)
   jStrt = region(0,0)      ; lat start
-  jLast = region(0,1)      ; lat last
-  iStrt = region(0,0)      ; lon start
+  jLast = region(0,0)      ; lat last
+  iStrt = region(0,1)      ; lon start
   iLast = region(0,1)      ; lon last
 else
   region = region_ind (lat2d,lon2d, latS, latN, lonW, lonE)
@@ -219,7 +219,7 @@ else
   iStrt = region(2)      ; lon start
   iLast = region(3)      ; lon last
 end if
-end if
+
 
   num_of_lats = jLast - jStrt + 1
   num_of_lons = iLast - iStrt + 1
