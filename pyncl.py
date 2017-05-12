@@ -204,15 +204,24 @@ times = year_file->time
 ;debug
 ;print(times)
 
-region = region_ind (lat2d,lon2d, latS, latN, lonW, lonE)
+if ((abs(latS-latN).lt.0.01) .and. (abs(lonW-lonE).lt.0.01)) then
+  print("ONE POINT QUERY")
+  region = getind_latlon2d (lat2d,lon2d, latS, lonW)
+  jStrt = region(0,0)      ; lat start
+  jLast = region(0,0)      ; lat last
+  iStrt = region(0,1)      ; lon start
+  iLast = region(0,1)      ; lon last
+else
+  print("REGION QUERY")
+  region = region_ind (lat2d,lon2d, latS, latN, lonW, lonE)
+  ;debug
+  print(region)
+  jStrt = region(0)      ; lat start
+  jLast = region(1)      ; lat last
+  iStrt = region(2)      ; lon start
+  iLast = region(3)      ; lon last
+end if
 
-;debug
-print(region)
-
-jStrt = region(0)      ; lat start
-jLast = region(1)      ; lat last
-iStrt = region(2)      ; lon start
-iLast = region(3)      ; lon last
 num_of_lats = jLast - jStrt + 1
 num_of_lons = iLast - iStrt + 1
 
