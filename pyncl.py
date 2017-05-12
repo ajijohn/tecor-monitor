@@ -68,7 +68,7 @@ class NCL:
                                   '"\' '+
                                   ' \'OUTPUTDIR="' + outputdir+
                                   '"\' '+
-                                  file_path, shell=True,timeout=300)
+                                  file_path, shell=True,timeout=3600)
             if retcode < 0:
                 print("Child was terminated by signal", -retcode, file=sys.stderr)
 
@@ -145,7 +145,6 @@ print(latN)
 print(lonW)
 print(lonE)
 
-
 ;;;;;;;;;;;get the time frame (past or future)
 if (startdate.gt.20010000) then
   model_time = "future"
@@ -205,27 +204,17 @@ times = year_file->time
 ;debug
 ;print(times)
 
-if ((abs(latS-latN).lt.0.01) .and. (abs(lonW-lonE).lt.0.01)) then
-  print("ONE POINT QUERY")
-  region = getind_latlon2d (lat2d,lon2d, latS, lonW)
-  jStrt = region(0,0)      ; lat start
-  jLast = region(0,0)      ; lat last
-  iStrt = region(0,1)      ; lon start
-  iLast = region(0,1)      ; lon last
-else
-  print("REGION QUERY")
-  region = region_ind (lat2d,lon2d, latS, latN, lonW, lonE)
-  ;debug
-  print(region)
-  jStrt = region(0)      ; lat start
-  jLast = region(1)      ; lat last
-  iStrt = region(2)      ; lon start
-  iLast = region(3)      ; lon last
-end if
+region = region_ind (lat2d,lon2d, latS, latN, lonW, lonE)
 
-  num_of_lats = jLast - jStrt + 1
-  num_of_lons = iLast - iStrt + 1
+;debug
+print(region)
 
+jStrt = region(0)      ; lat start
+jLast = region(1)      ; lat last
+iStrt = region(2)      ; lon start
+iLast = region(3)      ; lon last
+num_of_lats = jLast - jStrt + 1
+num_of_lons = iLast - iStrt + 1
 
 ;;testing
 ;LAT2D = lat2d(jStrt:jLast,iStrt:iLast)
@@ -484,6 +473,105 @@ delete(fout)
 
 ;exit
 status_exit(0)
+end
+    '''
+        NCL.create(ncl_file_path, ncl_code)
+        retCode = NCL.runV2(ncl_file_path,inputdir,outputdir, startdate, enddate,latS,latN,lonW,lonE ,varname,shade, height,interval,aggregation,output)
+        return retCode
+
+class RunNCL:
+
+    def withvar(inputdir,outputdir,startdate, enddate,latS,latN,lonW,lonE,varname):
+        ncl_file_path = os.path.join(tmp_dir, 'tmp.ncl')
+
+        ncl_code = '''
+
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
+begin
+
+ if (.not. isvar("startdate")) then      ; is startdate on command line?
+      startdate = 19810101;
+  end if
+
+  if (.not. isvar("enddate")) then      ; is enddate on command line?
+      enddate = 19810131;
+  end if
+
+  if (.not. isvar("latS")) then      ; is latS on command line?
+      latS = 30;
+  end if
+
+  if (.not. isvar("latN")) then      ; is latN on command line?
+      latN = 43;
+  end if
+
+  if (.not. isvar("lonW")) then      ; is lonW on command line?
+      lonW = -125;
+  end if
+
+  if (.not. isvar("lonE")) then      ; is lonE on command line?
+      lonE = -113;
+  end if
+
+  if (.not. isvar("varname")) then      ; is varname on command line?
+      varname = "Tsurface";
+  end if
+
+  if (.not. isvar("INPUTDIR")) then      ; is INPUTDIR on command line?
+      INPUTDIR = "/ebm/input";
+  end if
+
+  if (.not. isvar("OUTPUTDIR")) then      ; is OUTDIR on command line?
+      OUTDIR = "/ebm/output";
+  end if
+
+
+;INPUTDIR=""
+
+geo_em = addfile("geo_em.d01.nc", "r")
+lat2d = geo_em->XLAT_M(0,:,:)
+lon2d = geo_em->XLONG_M(0,:,:)
+
+latS   = 30                      ; California [*rough*]
+latN   = 43
+lonW   = -125
+lonE   = -113
+
+ji = region_ind (lat2d,lon2d, latS, latN, lonW, lonE)
+jStrt = ji(0)      ; lat start
+jLast = ji(1)      ; lat last
+iStrt = ji(2)      ; lon start
+iLast = ji(3)      ; lon last
+
+;varname = "Tsurface"
+model_time = "past"
+
+startyear = startdate/10000
+endyear = enddate/10000
+
+;startdate=19810101
+;enddate=19810131
+
+;get file name
+climate_file = model_time + "_" + tostring(startyear) + "_" + varname + ".nc"
+year_file = addfile(INPUTDIR + climate_file , "r")
+
+tstart = ind(year_file->time.eq.(startdate*100))
+tend = ind(year_file->time.eq.(enddate*100))
+;print(tstart)
+;print(tend)
+;print(jStrt)
+;print(jLast)
+;print(iStrt)
+;print(iLast)
+
+var = year_file->$varname$(0, tstart:tend,jStrt:jLast, iStrt:iLast)
+
+;OUTPUTDIR=""
+
+asciiwrite(OUTPUTDIR + "d02.txt", var)
+delete(year_file)
+exit
 end
     '''
         NCL.create(ncl_file_path, ncl_code)
