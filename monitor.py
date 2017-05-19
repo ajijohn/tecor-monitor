@@ -5,23 +5,21 @@ __author__ = 'Aji John'
 __version__ = '0.0.1'
 # ==============================================================================
 
-from enum import Enum
-from string import Template
+import os
+import sched
+import time
 from datetime import date
+from enum import Enum
+from os.path import join, dirname
+from string import Template
+
+from boto import s3
+from boto.s3.connection import OrdinaryCallingFormat
+from dotenv import load_dotenv
 from pymongo import MongoClient
+
 import SES
 import pyncl
-import sched, time
-import pytest
-#from boto3 import s3
-
-from boto.s3.connection import OrdinaryCallingFormat
-from boto import s3
-
-import os
-from os.path import join, dirname
-from dotenv import load_dotenv
-
 
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
@@ -55,6 +53,7 @@ class ErrorMessages(Enum):
     OK=0
     BOUNDING_BOX_TOO_SMALL=2
     NON_EXISTENT_MICROCLIM_FILE=42
+    SEGMENTATION_FAULT_CORE_DUMPED=139
 
 def check_new(sc):
     # look for new jobs
