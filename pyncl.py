@@ -442,7 +442,17 @@ do iyear=startyear, endyear
       fout->time(itime:totime) = (/ year_file->time(tstart:tend) /)
       if (output.eq.1) then ; write to csv file
         print ("writing data to csv")
-        write_csv_data(csv_name, data, year_file->time(tstart:tend), ntimes, num_of_lats, num_of_lons, fout->lat, fout->lon)
+        if ((tend-tstart).gt.4380) then ;writing the whole year at once may cause memory problems. Divide to to writings
+          iwrite_start=tstart
+          time_interval=3000
+          do while (iwrite_start.le.tend)
+            iwrite_end = min((/ tend, iwrite_start+time_interval /))
+            write_csv_data(csv_name, data(iwrite_start:iwrite_end,:,:), year_file->time(iwrite_start:iwrite_end), iwrite_end-iwrite_start+1, num_of_lats, num_of_lons, fout->lat, fout->lon)
+            iwrite_start = iwrite_end + 1
+          end do
+        else
+          write_csv_data(csv_name, data, year_file->time(tstart:tend), ntimes, num_of_lats, num_of_lons, fout->lat, fout->lon)
+        end if
       end if
     else ; analyze data by intervals
       output_time = new (ntimes, integer)

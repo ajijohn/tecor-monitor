@@ -227,17 +227,28 @@ begin
 
   ; create columns
   dims   = dimsizes(data)
-  time1d = ndtooned(conform_dims(dims,times,0))
-  lat1d  = ndtooned(conform_dims(dims,lat2d, (/ 1,2 /)))
-  lon1d  = ndtooned(conform_dims(dims,lon2d, (/ 1,2 /)))
+  print("1d data")
   data1d = ndtooned( (/ data /) )
   inotmissing = ind(.not.ismissing(data1d))
-  
-  towritetime = time1d(inotmissing)
-  towritelat = lat1d(inotmissing)
-  towritelon = lon1d(inotmissing)
   towritedata = data1d(inotmissing)
-    
+  delete(data1d)
+
+  print("1d time")
+  time1d = ndtooned(conform_dims(dims,times,0))
+  towritetime = time1d(inotmissing)
+  delete(time1d)
+
+  print("1d lats")
+  lat1d  = ndtooned(conform_dims(dims,lat2d, (/ 1,2 /)))
+  towritelat = lat1d(inotmissing)
+  delete(lat1d)
+
+  print("1d lons")
+  lon1d  = ndtooned(conform_dims(dims,lon2d, (/ 1,2 /)))
+  towritelon = lon1d(inotmissing)
+  delete(lon1d)
+  delete(inotmissing)
+
   ;add columns to list
   ;alist = [/time1d, lat1d, lon1d, data1d/]
   alist = [/towritetime, towritelat, towritelon, towritedata/]
