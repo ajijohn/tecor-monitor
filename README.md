@@ -22,6 +22,9 @@ python3 -u monitor.py
 
 ```
 
+## DOI
+[![DOI](https://zenodo.org/badge/68495458.svg)](https://zenodo.org/badge/latestdoi/68495458)
+
 ## License
 
 Apache
