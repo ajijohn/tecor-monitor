@@ -9,11 +9,16 @@ import os
 import sched
 import time
 from datetime import date
+from datetime import datetime
 from enum import Enum
 from os.path import join, dirname
 from string import Template
 
-from boto import s3
+#from boto import s3
+
+import boto3
+s3 = boto3.client('s3')
+
 from boto.s3.connection import OrdinaryCallingFormat
 from dotenv import load_dotenv
 from pymongo import MongoClient
@@ -54,6 +59,7 @@ class ErrorMessages(Enum):
     BOUNDING_BOX_TOO_SMALL=2
     NON_EXISTENT_MICROCLIM_FILE=42
     SEGMENTATION_FAULT_CORE_DUMPED=139
+    NCL_COMMAND_NOT_FOUND=127
 
 def check_new(sc):
     # look for new jobs
@@ -66,11 +72,58 @@ def check_new(sc):
     error = True
 
     request_lkup = requests.find_one({"status": "OPEN"})
+
+    # copy the required files to local
+    # update the status to say picked-up
+    # invoke the script to call the ncl
+    # verify the file exists in S3
+    # send email out
+
     if(request_lkup is not None):
-        # update the status to say picked-up
-        # invoke the script to call the ncl
-        # verify the file exists in S3
-        # send email out
+
+            #iterate thru variables to get the file names
+            #for variable in request_lkup['variable']:
+            # find the distinct years in the range
+            # dates are in format - "19810131"
+        enddate = datetime.strptime(request_lkup['enddate'], '%Y%m%d')
+        fromdate = datetime.strptime(request_lkup['startdate'], '%Y%m%d')
+        noofyears = enddate.year - fromdate.year
+
+        #set the time period
+        timeperiod =''
+        years=[]
+
+        #Requested for same year
+        if(noofyears == 0):
+                #use the from year
+                #initiate copy of all the files for the year for each requested variable
+                years=[fromdate.year]
+
+        else:
+                #get the years
+                years = [i+fromdate.year for i in range(noofyears)]
+
+        # check if past or future
+        if fromdate.year < datetime.now().year:
+                    timeperiod = 'past'
+        else:
+                    timeperiod = 'future'
+
+        # if the input work directory doesn't exist create it
+        if not os.path.exists(inputdir + '/' + str(request_lkup['_id'])):
+                os.makedirs(inputdir + '/' + str(request_lkup['_id']))
+
+        #initiate copy
+        for variable in request_lkup['variable']:
+          #for eg - past_1989_WIND10.nc
+            for year in years:
+                key= timeperiod+ '_' + str(year)+'_'+variable + '.nc'
+                if  not os.path.isfile(inputdir+  '/' + str(request_lkup['_id']) +  '/' + key):
+                   with open(inputdir+  '/' + str(request_lkup['_id']) +  '/' + key, 'wb') as data:
+                      #TODO  externalize
+                      s3.download_fileobj('microclim', key, data)
+
+
 
         #if the work directory doesn't exist create it
         if not os.path.exists(outputdir + '/' + str(request_lkup['_id'])):
@@ -80,7 +133,7 @@ def check_new(sc):
         for variable in request_lkup['variable']:
             #lat is LatS, LatN
             #lon is LonW, LonE
-            retCode = pyncl.RunNCLV2.withvar(inputdir,outputdir + '/' + str(request_lkup['_id']), request_lkup['startdate'],
+            retCode = pyncl.RunNCLV2.withvar(inputdir+ '/' + str(request_lkup['_id']),outputdir + '/' + str(request_lkup['_id']), request_lkup['startdate'],
                              request_lkup['enddate'],
                              request_lkup['lats'][0],
                              request_lkup['lats'][1],

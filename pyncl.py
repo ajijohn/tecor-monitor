@@ -1,3 +1,4 @@
+from __future__ import print_function
 # ==============================================================================
 # Author: Feng Zhu
 # Adapted by: Aji John
@@ -10,6 +11,7 @@ import os
 import subprocess
 import sys
 
+
 work_dir = os.getcwd()
 tmp_dir = os.path.join(work_dir, '.pyncl')
 
@@ -19,11 +21,13 @@ if not os.path.isdir(tmp_dir):
 
 class NCL:
 
+    @staticmethod
     def create(file_path, ncl_code):
         ncl_file = open(file_path, 'w')
         ncl_file.write(ncl_code)
         ncl_file.close()
 
+    @staticmethod
     def run(file_path,inputdir,outputdir, startdate, enddate,latS,latN,lonW,lonE ,varname):
         retcode = subprocess.call('ncl ' +
                                   'startdate=' + startdate+
@@ -46,6 +50,7 @@ class NCL:
 
     #shade=0 height=0 interval=0 aggregation=0 output=0
 
+    @staticmethod
     def runV2(file_path,inputdir,outputdir, startdate, enddate,latS,latN,lonW,lonE ,varname,shade, height,interval,aggregation,output):
         returnCode=0
 
@@ -87,6 +92,7 @@ class NCL:
 
 class RunNCLV2:
 
+    @staticmethod
     def withvar(inputdir,outputdir,startdate, enddate,latS,latN,lonW,lonE,varname,shade, height,interval,aggregation,output):
         ncl_file_path = os.path.join(tmp_dir, 'tmp.ncl')
 
