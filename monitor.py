@@ -14,8 +14,10 @@ from enum import Enum
 from os.path import join, dirname
 from string import Template
 
+#old
 #from boto import s3
 
+#new
 import boto3
 s3 = boto3.client('s3')
 
@@ -166,9 +168,12 @@ def check_new(sc):
         if(not error):
             #Last set of variables shade, height,interval,aggregation,output
 
-            c = s3.connect_to_region(awsregion,calling_format=OrdinaryCallingFormat())
-            bucket = c.get_bucket(s3bucket, validate=False)
+            #boto 2 - revised 06/8
+            #c = s3.connect_to_region(awsregion,calling_format=OrdinaryCallingFormat())
+            #bucket = c.get_bucket(s3bucket, validate=False)
 
+
+            #D-extract
             #key = bucket.new_key('/' + str(request_lkup['_id']) +'/extract.txt')
             #key.set_contents_from_filename(outputdir+ '/d02.txt')
 
@@ -182,12 +187,33 @@ def check_new(sc):
             footer = '\n \n If any questions/issues, please report it on our github issues page - https://github.com/trenchproject/ebm/issues.'
 
             for file in filestosend:
-                key = bucket.new_key('/' + str(request_lkup['_id']) + '/' + file)
-                key.set_contents_from_filename(transitdirectory + '/' + file)
-                key.set_metadata('Content-Type', 'text/plain')
-                key.set_acl('public-read')
+
+                #boto 2 upload to s3
+                #key = bucket.new_key('/' + str(request_lkup['_id']) + '/' + file)
+                #key.set_contents_from_filename(transitdirectory + '/' + file)
+                #key.set_metadata('Content-Type', 'text/plain')
+                #key.set_acl('public-read')
+
+                #Create file on S3 and setup the permissions - boto3
+                with open(transitdirectory + '/' + file, "rb") as f:
+                    s3.upload_fileobj(f, s3bucket, '/' + str(request_lkup['_id']) + '/' + file,
+                    ExtraArgs = {"Metadata": {"Content-Type": "text/plain"},'ACL': 'public-read'}
+                                      )
+
+
+
                 #2 days expiry
-                url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
+                #url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
+                #boto3
+                url = s3.generate_presigned_url(
+                    ClientMethod='get_object',
+                    Params={
+                        'Bucket': s3bucket,
+                        'Key': '/' + str(request_lkup['_id']) + '/' + file
+                    },
+                    ExpiresIn=172800
+                )
+
                 fileurls.append(url)
                 emailbodyurl=emailbodyurl+ "\n"+ url
 
