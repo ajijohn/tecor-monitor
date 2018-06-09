@@ -83,10 +83,10 @@ def check_new(sc):
 
     if(request_lkup is not None):
 
-            #iterate thru variables to get the file names
-            #for variable in request_lkup['variable']:
-            # find the distinct years in the range
-            # dates are in format - "19810131"
+        #iterate thru variables to get the file names
+        #for variable in request_lkup['variable']:
+        # find the distinct years in the range
+        # dates are in format - "19810131"
         enddate = datetime.strptime(request_lkup['enddate'], '%Y%m%d')
         fromdate = datetime.strptime(request_lkup['startdate'], '%Y%m%d')
         noofyears = enddate.year - fromdate.year
@@ -111,7 +111,7 @@ def check_new(sc):
         else:
                     timeperiod = 'future'
 
-        # if the input work directory doesn't exist create it
+        # if the input work directory doesn't exist, create it
         if not os.path.exists(inputdir + '/' + str(request_lkup['_id'])):
                 os.makedirs(inputdir + '/' + str(request_lkup['_id']))
 
@@ -122,12 +122,11 @@ def check_new(sc):
                 key= timeperiod+ '_' + str(year)+'_'+variable + '.nc'
                 if  not os.path.isfile(inputdir+  '/' + str(request_lkup['_id']) +  '/' + key):
                    with open(inputdir+  '/' + str(request_lkup['_id']) +  '/' + key, 'wb') as data:
-                      #TODO  externalize
-                      s3.download_fileobj('microclim', key, data)
+                      s3.download_fileobj(s3bucket, key, data)
 
 
 
-        #if the work directory doesn't exist create it
+        #if the output work directory doesn't exist create it
         if not os.path.exists(outputdir + '/' + str(request_lkup['_id'])):
             os.makedirs(outputdir + '/' + str(request_lkup['_id']))
 
