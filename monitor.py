@@ -19,6 +19,8 @@ from string import Template
 
 #new
 import boto3
+from botocore.exceptions import ClientError
+
 s3 = boto3.client('s3')
 
 from boto.s3.connection import OrdinaryCallingFormat
@@ -62,6 +64,7 @@ class ErrorMessages(Enum):
     NON_EXISTENT_MICROCLIM_FILE=42
     SEGMENTATION_FAULT_CORE_DUMPED=139
     NCL_COMMAND_NOT_FOUND=127
+    UNKNOWN_ERROR_OCCURED_LOGGED_FOR_RESEARCH = 500
 
 def check_new(sc):
     # look for new jobs
@@ -122,7 +125,15 @@ def check_new(sc):
                 key= timeperiod+ '_' + str(year)+'_'+variable + '.nc'
                 if  not os.path.isfile(inputdir+  '/' + str(request_lkup['_id']) +  '/' + key):
                    with open(inputdir+  '/' + str(request_lkup['_id']) +  '/' + key, 'wb') as data:
-                      s3.download_fileobj(s3bucket, key, data)
+                     try:
+                        s3.download_fileobj(s3bucket, key, data)
+                     except ClientError as e:
+                         if e.response['ResponseMetadata']['HTTPStatusCode'] == '404':
+                             retCode = 42
+                         else:
+                             retCode = 500
+                         break
+
 
 
 
@@ -199,9 +210,7 @@ def check_new(sc):
                     ExtraArgs = {"Metadata": {"Content-Type": "text/plain"},'ACL': 'public-read'}
                                       )
 
-
-
-                #2 days expiry
+               #2 days expiry
                 #url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
                 #boto3
                 url = s3.generate_presigned_url(
@@ -230,6 +239,9 @@ def check_new(sc):
 
             #TODO
             #Check if the update actually occured
+
+            #TODO - Remove the files from ebinput/{requestid}
+
         else:
             SES.send_ses(awsregion, 'requests@microclim.org', 'Your extract request-' +
                          str(request_lkup['_id']) + ' has completed with ERROR',
