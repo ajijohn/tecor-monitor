@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 from os.path import join, dirname
 from string import Template
-
+import shutil
 #old
 #from boto import s3
 
@@ -61,6 +61,7 @@ Extract Request
 class ErrorMessages(Enum):
     OK=0
     BOUNDING_BOX_TOO_SMALL=2
+    TWO_YEAR_FILTER_LIMIT = 3
     NON_EXISTENT_MICROCLIM_FILE=42
     SEGMENTATION_FAULT_CORE_DUMPED=139
     NCL_COMMAND_NOT_FOUND=127
@@ -75,6 +76,7 @@ def check_new(sc):
     requests = db.requests
 
     error = True
+    filesDownloaded = False
 
     request_lkup = requests.find_one({"status": "OPEN"})
 
@@ -118,15 +120,36 @@ def check_new(sc):
         if not os.path.exists(inputdir + '/' + str(request_lkup['_id'])):
                 os.makedirs(inputdir + '/' + str(request_lkup['_id']))
 
-        #initiate copy
-        for variable in request_lkup['variable']:
-          #for eg - past_1989_WIND10.nc
+        # fail to proceed, limit for only 2 years
+        if(noofyears > 2 ):
+            error = True
+            retCode = 3
+        else:
+            error = False
+
+        # Form the request string
+        requeststring = Template(
+                'Your request was submitted with parameters -  start date $startdate, enddate $enddate,' +
+                ' bounding box ($lats,$latn) ($lonw,$lone), ' +
+                ' shade level $shadelevel, height $hod, interval $interval and aggregation metric $aggregation.\n')
+        request_text = requeststring.safe_substitute(startdate=request_lkup['startdate'],
+                                                         enddate=request_lkup['enddate'],
+                                                         lats=request_lkup['lats'][0], latn=request_lkup['lats'][1],
+                                                         lonw=request_lkup['longs'][0], lone=request_lkup['longs'][1],
+                                                         shadelevel=request_lkup['shadelevel'], hod=request_lkup['hod'],
+                                                         interval=request_lkup['interval'],
+                                                         aggregation=request_lkup['aggregation'])
+        if not error:
+          #initiate copy
+          for variable in request_lkup['variable']:
+            #for eg - past_1989_WIND10.nc
             for year in years:
-                key= timeperiod+ '_' + str(year)+'_'+variable + '.nc'
+                key = timeperiod+ '_' + str(year)+'_'+variable + '.nc'
                 if  not os.path.isfile(inputdir+  '/' + str(request_lkup['_id']) +  '/' + key):
                    with open(inputdir+  '/' + str(request_lkup['_id']) +  '/' + key, 'wb') as data:
                      try:
                         s3.download_fileobj(s3bucket, key, data)
+                        filesDownloaded = True
                      except ClientError as e:
                          if e.response['ResponseMetadata']['HTTPStatusCode'] == '404':
                              retCode = 42
@@ -137,12 +160,12 @@ def check_new(sc):
 
 
 
-        #if the output work directory doesn't exist create it
-        if not os.path.exists(outputdir + '/' + str(request_lkup['_id'])):
+          #if the output work directory doesn't exist create it
+          if not os.path.exists(outputdir + '/' + str(request_lkup['_id'])):
             os.makedirs(outputdir + '/' + str(request_lkup['_id']))
 
-        #Iterate through all the variables
-        for variable in request_lkup['variable']:
+          #Iterate through all the variables
+          for variable in request_lkup['variable']:
             #lat is LatS, LatN
             #lon is LonW, LonE
             retCode = pyncl.RunNCLV2.withvar(inputdir+ '/' + str(request_lkup['_id']),outputdir + '/' + str(request_lkup['_id']), request_lkup['startdate'],
@@ -165,15 +188,9 @@ def check_new(sc):
             else:
                 error=False
 
-        #Form the request string
-        requeststring = Template('Your request was submitted with parameters -  start date $startdate, enddate $enddate,' +
-                     ' bounding box ($lats,$latn) ($lonw,$lone), ' +
-                     ' shade level $shadelevel, height $hod, interval $interval and aggregation metric $aggregation.\n')
-        request_text= requeststring.safe_substitute(startdate=request_lkup['startdate'], enddate=request_lkup['enddate'],
-                     lats=request_lkup['lats'][0],latn=request_lkup['lats'][1] ,
-                     lonw=request_lkup['longs'][0],lone=request_lkup['longs'][1],
-                     shadelevel=request_lkup['shadelevel'],hod=request_lkup['hod'],
-                     interval=request_lkup['interval'],aggregation=request_lkup['aggregation'])
+
+
+
 
         if(not error):
             #Last set of variables shade, height,interval,aggregation,output
@@ -240,7 +257,6 @@ def check_new(sc):
             #TODO
             #Check if the update actually occured
 
-            #TODO - Remove the files from ebinput/{requestid}
 
         else:
             SES.send_ses(awsregion, 'requests@microclim.org', 'Your extract request-' +
@@ -260,6 +276,10 @@ def check_new(sc):
 
         print("Processed request id - " + str(request_lkup['_id']) + " from " + str(request_lkup['email']) )
 
+    # Remove the files from ebinput/{requestid}
+    if filesDownloaded:
+        if  os.path.isdir(inputdir + '/' + str(request_lkup['_id'])):
+            shutil.rmtree(inputdir + '/' + str(request_lkup['_id']))
 
     print("Completed sweep on " + str(today.strftime('%m/%d/%Y %H:%M')) )
 
