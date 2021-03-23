@@ -11,6 +11,10 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 import sys
 import cdsapi
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+import sendgrid
+from sendgrid.helpers.mail import *
 
 #dotenv_path = join(dirname(__file__), '.env')
 #load_dotenv(dotenv_path)
@@ -95,7 +99,7 @@ def check_new(sc):
         else:
             # get the years
             years = [i+fromdate.year for i in range(noofyears)]
-            print(years)
+            #print(years)
 
         # check if past or future
         if fromdate.year < datetime.now().year:
@@ -103,7 +107,7 @@ def check_new(sc):
             #print(timeperiod)
         else:
             timeperiod = 'future'
-            #rint(timeperiod)
+            #print(timeperiod)
 
         # if the input work directory doesn't exist, create it
         if not os.path.exists(str(inputdir) + '/' + str(request_lkup['_id'])):
@@ -134,7 +138,7 @@ def check_new(sc):
 
         if not(os.path.exists(str(outputdir) + '/' + str(request_lkup['_id']))):
             os.makedirs(str(outputdir) + '/' + str(request_lkup['_id']))
-            #print("Directory Created")
+        
 
         
         if request_lkup['sourcetype'] == 'ERA5':
@@ -150,6 +154,8 @@ def check_new(sc):
             West = request_lkup['longs'][1]
             interval = request_lkup['interval']
             output = request_lkup['outputformat']
+            email = request_lkup['email']
+            
             if interval == 'Daily':
                 time = ['00:00']
             elif interval == '6 Hourly':
@@ -167,10 +173,32 @@ def check_new(sc):
         
             result = function_cds(start_year,end_year,start_month,end_month,start_day,end_day,North,South,East,West,variable,output,time)
             print("Result :",result)
-            print("OS Getcwd : ",os.getcwd())
+            os.chdir(str(outputdir) + '/' + str(request_lkup['_id']))
+            #path = os.getcwd()
+            #print('Getwd',path)
             with open("myfile.txt", "w") as file1: 
                 file1.write(result.download())
             file1.close()
+
+            #Send Grid Mail
+            message = Mail(from_email='devteam-noreply@hashdev.in',to_emails=email,subject='Microclim.org',html_content= str(result))
+            
+            attachedFile = Attachment(
+                FileContent(result.download()),
+                FileName('Microclim.org'),
+                FileType('application/pdf'),
+                Disposition('attachment')
+            )
+            message.attachment = attachedFile
+
+            try:
+                sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+                response = sg.send(message)
+                print(response.status_code)
+                print(response.body)
+                print(response.headers)   
+            except Exception as e:
+                print(e)
 
 if __name__ == '__main__':
     # Initialize with DB Context
