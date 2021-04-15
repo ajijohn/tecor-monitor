@@ -5,3 +5,6 @@ boto
 boto3
 pytest
 enum34
+xarray
+sendgrid
+scipy
