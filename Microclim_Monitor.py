@@ -31,7 +31,7 @@ awsprofile = os.environ.get("AWS_PROFILE")
 aerisclientid= os.environ.get("AERIS_CLIENT_ID")
 aerisclientsecret=os.environ.get("AERIS_CLIENT_SECRET")
 
-session = boto3.session.Session(profile_name=awsprofile)
+session = boto3.session.Session(profile_name=awsprofile,region_name=awsregion)
 print(boto3.session.Session().available_profiles)
 
 ses = session.client('ses')
