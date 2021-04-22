@@ -8,3 +8,4 @@ enum34
 xarray
 sendgrid
 scipy
+cdsapi
