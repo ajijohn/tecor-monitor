@@ -6,7 +6,6 @@ import time
 import urllib.request
 from datetime import date
 from datetime import datetime
-from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from os.path import join, dirname
@@ -28,8 +27,16 @@ emailfrom = os.environ.get("EMAILFROM")
 s3bucket = os.environ.get("BUCKET")
 awsregion = os.environ.get("AWSREGION")
 smtp_provider = os.environ.get("SMTP_PROVIDER")
+awsprofile = os.environ.get("AWS_PROFILE")
+aerisclientid= os.environ.get("AERIS_CLIENT_ID")
+aerisclientsecret=os.environ.get("AERIS_CLIENT_SECRET")
 
-ses = boto3.client('ses')
+session = boto3.session.Session(profile_name=awsprofile)
+print(boto3.session.Session().available_profiles)
+
+ses = session.client('ses')
+s3 = session.client('s3')
+
 
 s = sched.scheduler(time.time, time.sleep)
 
@@ -77,7 +84,7 @@ def check_new(sc):
     error = True
     filesDownloaded = False
 
-    request_lkup = requests.find_one({"status": "OPEN"})
+    request_lkup = requests.find_one({"status": "OPEN","version":"2"})
     # print(request_lkup)
 
     # copy the required files to local
@@ -194,12 +201,12 @@ def check_new(sc):
                 msg['Subject'] = 'Your Microclim extract request- ' + str(request_lkup['_id']) + ' was submitted successfully.'
                 msg['From'] = emailfrom
                 # Temporary
-                # msg['To'] = email
-                msg['To'] = emailfrom
+                msg['To'] = email
+                #msg['To'] = emailfrom
                 result = ses.send_raw_email(
                     Source=msg['From'],
-                    # Destinations=[request_lkup['email']],
-                    Destinations=[emailfrom],
+                    Destinations=[request_lkup['email']],
+                    #Destinations=[emailfrom],
                     RawMessage={'Data': msg.as_string()}
                 )
 
@@ -249,7 +256,8 @@ def check_new(sc):
                 'https://api.aerisapi.com/observations/archive/within?p=' +
                 location + '&from=' + start_date + '&to=' +
                 end_date + '&format=json&filter=allstations&limit=100&plimit=10&fields=' +
-                v4 + '&client_id=client_id&client_secret=client_secret')
+                v4.strip() + '&client_id=' +aerisclientid+ '&client_secret=' +aerisclientsecret)
+
             response = request.read()
             import json
             json = json.loads(response)
@@ -276,35 +284,84 @@ def check_new(sc):
             file_name = x[0]
             file_path = os.path.join(path2, file_name)
 
-            # SendGrid Mail is sent with the result and text file attachment
-            message = Mail(from_email=emailfrom, to_emails=email, subject='Microclim.org',
+            if (smtp_provider == 'SENDGRID'):
+               # SendGrid Mail is sent with the result and text file attachment
+               message = Mail(from_email=emailfrom, to_emails=email, subject='Microclim.org',
                            html_content='Your Request with Microclim.org was successful.<br> The result is attached below.')
-            with open(file_path, 'rb') as f:
-                data = f.read()
-            f.close()
-            encoded_file = base64.b64encode(data).decode()
-            attachment = Attachment()
-            attachment.file_content = FileContent(encoded_file)
-            attachment.file_name = FileName('Microclim.')
-            attachment.disposition = Disposition('attachment')
-            message.attachment = attachment
-            try:
-                sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
-                response = sg.send(message)
-                print(response.status_code)
-                print(response.body)
-                print(response.headers)
-            except Exception as e:
-                print(e)
+               with open(file_path, 'rb') as f:
+                   data = f.read()
+               f.close()
+               encoded_file = base64.b64encode(data).decode()
+               attachment = Attachment()
+               attachment.file_content = FileContent(encoded_file)
+               attachment.file_name = FileName('Microclim.')
+               attachment.disposition = Disposition('attachment')
+               message.attachment = attachment
+               try:
+                   sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+                   response = sg.send(message)
+                   print(response.status_code)
+                   print(response.body)
+                   print(response.headers)
+               except Exception as e:
+                   print(e)
+            else:
+                transitdirectory = outputdir + '/' + str(request_lkup['_id'])
 
-            # Updating the status of the request to mailed
-            requests.update_one({
-                '_id': request_lkup['_id']
-            }, {
-                '$set': {
-                    'status': "EMAILED"
-                }
-            }, upsert=False)
+                # copy all the created files
+                filestosend = [f for f in os.listdir(transitdirectory) if os.path.isfile(
+                    os.path.join(transitdirectory, f))]
+
+                fileurls = []
+                emailbodyurl = '\n'
+                footer = '\n \n If any questions/issues, please report it on our GitHub\
+                                         issues page - https://github.com/ajijohn/ebm/issues.'
+
+                for file in filestosend:
+                    # Create file on S3 and setup the permissions - boto3
+                    with open(transitdirectory + '/' + file, "rb") as f:
+                        s3.upload_fileobj(f, s3bucket, '/' + str(request_lkup['_id']) + '/' + file,
+                                          ExtraArgs={"Metadata": {"Content-Type": "text/plain"}, 'ACL': 'public-read'})
+
+                        # 2 days expiry
+                        # url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
+                        # boto3
+                        url = s3.generate_presigned_url(
+                            ClientMethod='get_object',
+                            Params={
+                                'Bucket': s3bucket,
+                                'Key': '/' + str(request_lkup['_id']) + '/' + file
+                            },
+                            ExpiresIn=172800)
+
+                        fileurls.append(url)
+                        emailbodyurl = emailbodyurl + "\n" + url
+
+                msg = MIMEMultipart()
+                # the message body
+                part = MIMEText(
+                    request_text + "You can access your files which are linked below \n " + emailbodyurl + '\n' + footer)
+                msg.attach(part)
+
+                msg['Subject'] = 'Your Microclim extract request-' + str(request_lkup['_id']) + ' has completed'
+                msg['From'] = emailfrom
+                msg['To'] = request_lkup['email']
+                # msg['To'] = emailfrom
+
+                # what a recipient sees if they don't use an email reader
+                msg.preamble = 'Your extract request-' + \
+                               str(request_lkup['_id']) + \
+                               ' has completed. Links are below \n' + \
+                               emailbodyurl + '\n'
+
+                result = ses.send_raw_email(
+                    Source=msg['From'],
+                    Destinations=[request_lkup['email']],
+                    #Destinations=[emailfrom],
+                    RawMessage={'Data': msg.as_string()}
+                )
+
+                filesDownloaded = True
 
             # If the source is ERA5
         if request_lkup['sourcetype'] == 'ERA5':
@@ -404,31 +461,47 @@ def check_new(sc):
                             os.path.join(transitdirectory, f))]
 
                         fileurls = []
-                        emailbodyurl = ''
+                        emailbodyurl = '\n'
                         footer = '\n \n If any questions/issues, please report it on our GitHub\
                          issues page - https://github.com/ajijohn/ebm/issues.'
 
-                        msg = MIMEMultipart()
-                        # the message body
-                        part = MIMEText(
-                            request_text + "You can access your files which are attached below \n " + footer)
-                        msg.attach(part)
 
                         for file in filestosend:
                             # Create file on S3 and setup the permissions - boto3
                             with open(transitdirectory + '/' + file, "rb") as f:
-                                # the attachment
-                                part = MIMEApplication(open(file, 'rb').read())
-                                part.add_header('Content-Disposition', 'attachment', filename=file)
-                                msg.attach(part)
+                                s3.upload_fileobj(f, s3bucket, '/' + str(request_lkup['_id']) + '/' + file,
+                                  ExtraArgs = {"Metadata": {"Content-Type": "text/plain"}, 'ACL': 'public-read'})
+
+                                # 2 days expiry
+                                # url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
+                                # boto3
+                                url = s3.generate_presigned_url(
+                                ClientMethod = 'get_object',
+                                Params = {
+                                             'Bucket': s3bucket,
+                                             'Key': '/' + str(request_lkup['_id']) + '/' + file
+                                         },
+                                ExpiresIn = 172800)
+
+                                fileurls.append(url)
+                                emailbodyurl = emailbodyurl + "\n" + url
+
+                        msg = MIMEMultipart()
+                        # the message body
+                        part = MIMEText(
+                            request_text + "You can access your files which are linked below \n " + emailbodyurl + '\n' + footer)
+                        msg.attach(part)
 
                         msg['Subject'] = 'Your extract request-' + str(request_lkup['_id']) + ' has completed'
                         msg['From'] = emailfrom
-                        # msg['To'] = request_lkup['email']
-                        msg['To'] = emailfrom
+                        msg['To'] = request_lkup['email']
+                        #msg['To'] = emailfrom
 
                         # what a recipient sees if they don't use an email reader
-                        msg.preamble = 'Your extract request-' + str(request_lkup['_id']) + ' has completed.\n'
+                        msg.preamble = 'Your extract request-' + \
+                                       str(request_lkup['_id']) +\
+                                       ' has completed. Links are below \n' + \
+                                       emailbodyurl + '\n'
 
                         result = ses.send_raw_email(
                             Source=msg['From'],
@@ -450,14 +523,6 @@ def check_new(sc):
                         }
                         }, upsert=False)
 
-                requests.update_one({
-                    '_id': request_lkup['_id']
-                }, {
-                    '$set': {
-                        'status': "EMAILED"
-                    }
-                }, upsert=False)
-
                 # TODO
                 # Check if the update actually occured
 
@@ -475,7 +540,7 @@ def check_new(sc):
                 df.to_csv(csv_file_out)
                 file_name = netcdf_file_name[1:-3] + '.csv'
 
-
+                emailbodyurl = 'Link to the files are below :-'
 
                 try:
                     if (smtp_provider == 'SENDGRID'):
@@ -512,24 +577,41 @@ def check_new(sc):
                         footer = '\n \n If any questions/issues, please report it on our \
                             GitHub issues page - https://github.com/ajijohn/ebm/issues.'
 
-                        msg = MIMEMultipart()
-                        # the message body
-                        part = MIMEText(
-                            request_text + "You can access your files which are attached below \n " + footer)
-                        msg.attach(part)
+
 
                         for file in filestosend:
                               # Create file on S3 and setup the permissions - boto3
+                              # Create file on S3 and setup the permissions - boto3
                               with open(transitdirectory + '/' + file, "rb") as f:
-                                 # the attachment
-                                 part = MIMEApplication(open(file, 'rb').read())
-                                 part.add_header('Content-Disposition', 'attachment', filename=file)
-                                 msg.attach(part)
+                                  s3.upload_fileobj(f, s3bucket, '/' + str(request_lkup['_id']) + '/' + file,
+                                                    ExtraArgs={"Metadata": {"Content-Type": "text/plain"},
+                                                               'ACL': 'public-read'})
+
+                                  # 2 days expiry
+                                  # url = key.generate_url(expires_in=172800, query_auth=False, force_http=True)
+                                  # boto3
+                                  url = s3.generate_presigned_url(
+                                      ClientMethod='get_object',
+                                      Params={
+                                          'Bucket': s3bucket,
+                                          'Key': '/' + str(request_lkup['_id']) + '/' + file
+                                      },
+                                      ExpiresIn=172800)
+
+                                  emailbodyurl = emailbodyurl + "\n" + url
+
+
+
+                        msg = MIMEMultipart()
+                        # the message body
+                        part = MIMEText(
+                            request_text + "You can access your files which are attached below \n " + emailbodyurl + "\n" + footer)
+                        msg.attach(part)
 
                         msg['Subject'] = 'Your extract request-' + str(request_lkup['_id']) + ' has completed'
                         msg['From'] = emailfrom
-                        # msg['To'] = request_lkup['email']
-                        msg['To'] = emailfrom
+                        msg['To'] = request_lkup['email']
+                        #msg['To'] = emailfrom
 
                         # what a recipient sees if they don't use an email reader
                         msg.preamble = 'Your extract request-' + str(request_lkup['_id']) + ' has completed.\n'
@@ -537,8 +619,8 @@ def check_new(sc):
 
                         result = ses.send_raw_email(
                             Source=msg['From'],
-                            # Destinations=[request_lkup['email']],
-                            Destinations=[emailfrom],
+                            Destinations=[request_lkup['email']],
+                            #Destinations=[emailfrom],
                             RawMessage={'Data': msg.as_string()}
                             )
 
@@ -554,19 +636,23 @@ def check_new(sc):
                     }
                      }, upsert=False)
 
-                # Updating the status of the request to emailed
-                requests.update_one({
-                    '_id': request_lkup['_id']
-                }, {
-                    '$set': {
-                        'status': "EMAILED"
-                    }
-                }, upsert=False)
+
 
     # Remove the files from ebinput/{requestid}
     if filesDownloaded:
+        # Updating the status of the request to emailed
+        requests.update_one({
+            '_id': request_lkup['_id']
+        }, {
+            '$set': {
+                'status': "EMAILED"
+            }
+        }, upsert=False)
+
         if os.path.isdir(inputdir + '/' + str(request_lkup['_id'])):
             shutil.rmtree(inputdir + '/' + str(request_lkup['_id']))
+        if os.path.isdir(outputdir + '/' + str(request_lkup['_id'])):
+            shutil.rmtree(outputdir + '/' + str(request_lkup['_id']))
 
     print("Completed sweep on " + str(today.strftime('%m/%d/%Y %H:%M')))
 
