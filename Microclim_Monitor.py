@@ -64,6 +64,7 @@ def function_cds(start_year, end_year, start_month, end_month, start_day, end_da
             ],
             'time': time,
             'format': output_format,
+            'grid': [0.25, 0.25],
             'area': [
                 North, West, South,
                 East,
@@ -152,10 +153,10 @@ def check_new(sc):
         end_month = request_lkup['enddate'][4:6]
         start_year = request_lkup['startdate'][:4]
         end_year = request_lkup['enddate'][:4]
-        South = request_lkup['lats'][0]
         North = request_lkup['lats'][1]
-        West = request_lkup['longs'][0]
+        South = request_lkup['lats'][0]
         East = request_lkup['longs'][1]
+        West = request_lkup['longs'][0]
         interval = request_lkup['interval']
         output = request_lkup['outputformat']
         email = request_lkup['email']
@@ -217,10 +218,10 @@ def check_new(sc):
         # If the source type is aeris weather
         if request_lkup['sourcetype'] == 'aeris':
             # variables needed for the aeries request is extracted
-            North = request_lkup['lats'][0]
-            East = request_lkup['lats'][1]
-            South = request_lkup['longs'][0]
-            West = request_lkup['longs'][1]
+            North = request_lkup['lats'][1]
+            South = request_lkup['lats'][0]
+            East = request_lkup['longs'][1]
+            West = request_lkup['longs'][0]
             email = request_lkup['email']
             start_day = request_lkup['startdate'][6:8]
             start_month = request_lkup['startdate'][4:6]
@@ -373,10 +374,10 @@ def check_new(sc):
             end_month = request_lkup['enddate'][4:6]
             start_year = request_lkup['startdate'][:4]
             end_year = request_lkup['enddate'][:4]
-            North = request_lkup['lats'][0]
-            South = request_lkup['lats'][1]
-            East = request_lkup['longs'][0]
-            West = request_lkup['longs'][1]
+            North = request_lkup['lats'][1]
+            South = request_lkup['lats'][0]
+            East = request_lkup['longs'][1]
+            West = request_lkup['longs'][0]
             interval = request_lkup['interval']
             output = request_lkup['outputformat']
             email = request_lkup['email']
