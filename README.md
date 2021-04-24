@@ -25,6 +25,7 @@ pip3  install -r requirements.txt
 
 Create a .env file with below
 
+```
 BUCKET={your bucketname}
 AWSREGION=us-west-2
 INPUTDIR=/ebminput
@@ -35,6 +36,8 @@ SENDGRID_API_KEY=SNDGRIDKEY
 AERIS_CLIENT_ID=AERIS_CLIENT
 AERIS_CLIENT_SECRET=AERIS_KEY
 AWS_PROFILE=default
+```
+
 
 Setup credentials in 
 
