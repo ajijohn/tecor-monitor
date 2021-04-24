@@ -3,7 +3,7 @@ tecor-monitor
 
 Microclim - Backend Processor.
 
-[![Build Status](https://travis-ci.org/trenchproject/tecor-monitor.svg)](https://travis-ci.org/trenchproject/tecor-monitor)
+[![Build Status](https://travis-ci.org/ajijohn/tecor-monitor.svg)](https://travis-ci.org/ajijohn/tecor-monitor)
 
 ## Purpose
 
