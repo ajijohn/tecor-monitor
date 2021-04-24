@@ -7,13 +7,13 @@ Microclim - Backend Processor.
 
 ## Purpose
 
-This module is the heart of the http://Microclim.org project, it monitors the requests, and processes
+This module is the heart of the https://microclim.org project, it monitors the requests, and processes
 them. The module invokes the NCL script, and then uploads the generated files to S3, on completion, it 
 sends an email to the requester with corresponding S3 links.
  
 # Installation
 ```
-git clone https://github.com/trenchproject/tecor-monitor.git tecor-monitor
+git clone https://github.com/ajijohn/tecor-monitor.git tecor-monitor
 ```
 
 # Install packages
@@ -29,6 +29,12 @@ BUCKET={your bucketname}
 AWSREGION=us-west-2
 INPUTDIR=/ebminput
 OUTPUTDIR=/ebmoutput
+EMAILFROM=zyz@youremail.org
+SMTP_PROVIDER=SES
+SENDGRID_API_KEY=SNDGRIDKEY
+AERIS_CLIENT_ID=AERIS_CLIENT
+AERIS_CLIENT_SECRET=AERIS_KEY
+AWS_PROFILE=default
 
 Setup credentials in 
 
@@ -42,9 +48,9 @@ aws_secret_access_key={access key}
 
 # Usage
 ```
-python3 -u monitor.py
+python3 -u Microclim_Monitor.py
 
-nohup python3 monitor.py >logfile.txt 2>&1 </dev/null &
+nohup python3 Microclim_Monitor.py >logfile.txt 2>&1 </dev/null &
 ```
 
 # Mounting filesystems
